@@ -1,0 +1,7 @@
+# Build output
+manual-build/
+*.apk
+
+# Local tooling
+.gradle/
+local.properties
