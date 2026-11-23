@@ -425,7 +425,7 @@ public class MainActivity extends Activity {
         LinearLayout aliveCard = card();
         aliveCard.addView(sectionLabel("Staying alive"));
         aliveCard.addView(body("It starts by itself after a reboot, revives itself if the "
-                + "system kills it, and checks in every 15 minutes. On OnePlus it also needs "
+                + "system kills it, and checks in every 30 minutes. On OnePlus it also needs "
                 + "Battery usage set to Unrestricted and Auto launch turned on."));
         Button batteryButton = secondaryButton("Battery + auto-launch settings");
         batteryButton.setOnClickListener(v -> openBatterySettings());

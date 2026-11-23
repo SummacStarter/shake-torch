@@ -9,6 +9,10 @@ BT=~/workspace/android-sdk/build-tools/34.0.0
 AJAR=~/workspace/android-sdk/platforms/android-34/android.jar
 APP=~/workspace/shake-torch-app
 BLD=$APP/manual-build
+# Naming rule: the deliverable is always ShakeTorch-v<VERSION_NAME>.apk,
+# built from these two variables and nothing else.
+VERSION_NAME=1.10
+VERSION_CODE=11
 mkdir -p $BLD/gen $BLD/classes $BLD/dex
 
 # Debug keystore (created once).
@@ -25,7 +29,7 @@ sed 's|<manifest xmlns:android="http://schemas.android.com/apk/res/android">|<ma
 $BT/aapt2 compile --dir $APP/app/src/main/res -o $BLD/compiled.zip
 $BT/aapt2 link -o $BLD/app-res.apk -I $AJAR --manifest $BLD/AndroidManifest.xml -A $APP/app/src/main/assets \
   --java $BLD/gen --min-sdk-version 26 --target-sdk-version 34 \
-  --version-code 10 --version-name 1.9 $BLD/compiled.zip
+  --version-code $VERSION_CODE --version-name $VERSION_NAME $BLD/compiled.zip
 
 $JAVA_HOME/bin/javac -encoding UTF-8 -source 17 -target 17 -classpath $AJAR \
   -d $BLD/classes $(find $APP/app/src/main/java $BLD/gen -name "*.java")
@@ -38,5 +42,5 @@ $BT/zipalign -p -f 4 $BLD/app-unsigned.apk $BLD/app-aligned.apk
 $BT/apksigner sign --ks $BLD/debug.keystore --ks-pass pass:android --key-pass pass:android \
   --out $BLD/app-debug.apk $BLD/app-aligned.apk
 $BT/apksigner verify $BLD/app-debug.apk
-cp $BLD/app-debug.apk $APP/ShakeTorch.apk
-echo "Built: $APP/ShakeTorch.apk"
+cp $BLD/app-debug.apk $APP/ShakeTorch-v$VERSION_NAME.apk
+echo "Built: $APP/ShakeTorch-v$VERSION_NAME.apk"

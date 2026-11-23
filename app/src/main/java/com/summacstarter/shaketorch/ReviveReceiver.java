@@ -17,7 +17,7 @@ public class ReviveReceiver extends BroadcastReceiver {
 
     public static final String ACTION_REVIVE = "com.summacstarter.shaketorch.REVIVE";
     private static final int REQUEST_CODE = 7;
-    public static final long WATCHDOG_INTERVAL_MS = 15 * 60 * 1000;
+    public static final long WATCHDOG_INTERVAL_MS = 30 * 60 * 1000;
 
     @Override
     public void onReceive(Context context, Intent intent) {

@@ -40,6 +40,9 @@ public class ShakeService extends Service implements SensorEventListener {
     private SensorManager sensorManager;
     private Sensor accelerometer;
     private Sensor proximity;
+    private boolean sensorsRegistered = false;
+    private volatile float thresholdG = thresholdFor(50);
+    private SharedPreferences.OnSharedPreferenceChangeListener prefListener;
 
     private boolean proximityNear = false;
     private boolean torchOn = false;
@@ -56,6 +59,15 @@ public class ShakeService extends Service implements SensorEventListener {
             accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
             proximity = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY);
         }
+        // Cache the threshold instead of reading preferences on every sample.
+        SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        thresholdG = thresholdFor(prefs.getInt(KEY_SENSITIVITY, 50));
+        prefListener = (sharedPreferences, key) -> {
+            if (KEY_SENSITIVITY.equals(key)) {
+                thresholdG = thresholdFor(sharedPreferences.getInt(KEY_SENSITIVITY, 50));
+            }
+        };
+        prefs.registerOnSharedPreferenceChangeListener(prefListener);
     }
 
     @Override
@@ -67,7 +79,11 @@ public class ShakeService extends Service implements SensorEventListener {
         ReviveReceiver.scheduleWatchdog(this);
         // If root protections were applied once, quietly re-assert the cheap
         // ones (Doze whitelist, standby bucket) in case the system reset them.
-        new Thread(() -> RootTools.reapplyQuietly(this)).start();
+        // First start of this instance only; the watchdog restarting a live
+        // service should cost nothing.
+        if (startId == 1) {
+            new Thread(() -> RootTools.reapplyQuietly(this)).start();
+        }
         return START_STICKY;
     }
 
@@ -109,21 +125,33 @@ public class ShakeService extends Service implements SensorEventListener {
     }
 
     private void registerSensors() {
-        if (sensorManager == null) {
+        if (sensorManager == null || sensorsRegistered) {
             return;
         }
         if (accelerometer != null) {
-            sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_GAME);
+            // Energy: sample at 25 Hz (a chop is a broad motion; 50 Hz was
+            // wasted resolution) and let the sensor hub batch reports for
+            // 250 ms so the processor sleeps between bursts instead of
+            // waking for every sample. Chop timing uses each sample's own
+            // hardware timestamp, so batching does not distort the gesture.
+            sensorManager.registerListener(this, accelerometer,
+                    40_000, 250_000);
         }
         if (proximity != null) {
             sensorManager.registerListener(this, proximity, SensorManager.SENSOR_DELAY_NORMAL);
         }
+        sensorsRegistered = true;
     }
 
     @Override
     public void onDestroy() {
         if (sensorManager != null) {
             sensorManager.unregisterListener(this);
+        }
+        sensorsRegistered = false;
+        if (prefListener != null) {
+            getSharedPreferences(PREFS, MODE_PRIVATE)
+                    .unregisterOnSharedPreferenceChangeListener(prefListener);
         }
         // Killed while still switched on (the switch writes its pref before
         // stopping the service, so an intentional stop leaves enabled=false):
@@ -144,12 +172,6 @@ public class ShakeService extends Service implements SensorEventListener {
         return 3.8f - (sensitivity / 100f) * 2.5f;
     }
 
-    private float currentThresholdG() {
-        SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
-        int sensitivity = prefs.getInt(KEY_SENSITIVITY, 50);
-        return thresholdFor(sensitivity);
-    }
-
     @Override
     public void onSensorChanged(SensorEvent event) {
         if (event.sensor.getType() == Sensor.TYPE_PROXIMITY) {
@@ -166,8 +188,10 @@ public class ShakeService extends Service implements SensorEventListener {
         float z = event.values[2];
         double gForce = Math.sqrt(x * x + y * y + z * z) / SensorManager.GRAVITY_EARTH;
 
-        long now = System.currentTimeMillis();
-        if (gForce <= currentThresholdG()) {
+        // The sample's hardware timestamp, not delivery time: batched
+        // reports arrive in bursts but keep their true spacing.
+        long now = event.timestamp / 1_000_000L;
+        if (gForce <= thresholdG) {
             return;
         }
         // Debounce: one chop per sharp movement, not per sensor sample.

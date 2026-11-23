@@ -84,7 +84,7 @@ No Gradle — the build drives the Android SDK tools directly:
 ./build.sh   # needs a JDK 17 and Android SDK platform/build-tools 34
 ```
 
-Produces a signed `ShakeTorch.apk` in the project root.
+Produces a signed `ShakeTorch-v<VERSION>.apk` in the project root, where `<VERSION>` is the version name set in `build.sh`.
 
 ## 📄 License
 
