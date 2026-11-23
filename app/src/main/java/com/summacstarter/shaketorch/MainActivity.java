@@ -36,6 +36,17 @@ public class MainActivity extends Activity {
             0xFFFF7043  // orange
     };
 
+    // Complementary partners, one per accent — opposites on the colour
+    // wheel, per the colour-contrast reel Leena saved (@nmnustudio:
+    // pair opposites, and carry the contrast in value as well as hue).
+    private static final int[] PARTNERS = {
+            0xFFFFC400, // amber, opposite purple
+            0xFFFF9800, // orange, opposite blue
+            0xFF00BFA5, // cyan-teal, opposite pink
+            0xFFFF7043, // coral orange, opposite teal
+            0xFF2979FF  // blue, opposite orange
+    };
+
     private SharedPreferences prefs;
     private ScrollView scrollView;
     private Switch serviceSwitch;
@@ -54,6 +65,7 @@ public class MainActivity extends Activity {
     private boolean dark;
     private int accent;
     private int accentDark;
+    private int partner;
     private int colBg;
     private int colCard;
     private int colText;
@@ -85,6 +97,7 @@ public class MainActivity extends Activity {
         }
         accent = ACCENTS[idx];
         accentDark = shade(accent, 0.68f);
+        partner = PARTNERS[idx];
         colBg = dark ? 0xFF0B0B0F : 0xFFF6F6F8;
         colCard = dark ? 0xFF17171D : 0xFFFFFFFF;
         colText = dark ? 0xFFF2F2F5 : 0xFF131318;
@@ -94,6 +107,26 @@ public class MainActivity extends Activity {
         // dark and black on light, so they blend into whatever sits behind
         // them instead of reading as a solid grey line.
         colStroke = dark ? 0x1FFFFFFF : 0x1F000000;
+        // Colour-tinted depth: the surface ladder keeps its value steps
+        // (darkest background, mid card, lightest surface — the interior
+        // reels' deep base + mid + light structure), but every step is
+        // washed with the accent hue so the whole screen belongs to the
+        // chosen palette instead of sitting on neutral grey.
+        if (dark) {
+            colBg = mix(accent, colBg, 0.07f);
+            colCard = mix(accent, colCard, 0.09f);
+            colSurface = mix(accent, colSurface, 0.11f);
+        } else {
+            colBg = mix(accent, colBg, 0.04f);
+            colSurface = mix(accent, colSurface, 0.05f);
+        }
+    }
+
+    private static int mix(int from, int to, float ratio) {
+        int r = Math.round(((from >> 16) & 0xFF) * ratio + ((to >> 16) & 0xFF) * (1f - ratio));
+        int g = Math.round(((from >> 8) & 0xFF) * ratio + ((to >> 8) & 0xFF) * (1f - ratio));
+        int b = Math.round((from & 0xFF) * ratio + (to & 0xFF) * (1f - ratio));
+        return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 
     // Reel rule (gradients in OKLCH): interpolate the gradient midpoint in
@@ -455,7 +488,9 @@ public class MainActivity extends Activity {
             circle.setShape(GradientDrawable.OVAL);
             circle.setColor(ACCENTS[i]);
             if (i == currentAccent) {
-                circle.setStroke(dp(3), colText);
+                // The selected swatch is ringed in its complementary
+                // partner, so the pair reads as one palette.
+                circle.setStroke(dp(3), PARTNERS[i]);
             }
             swatch.setBackground(circle);
             swatch.setText(i == currentAccent ? "✓" : "");
@@ -566,7 +601,7 @@ public class MainActivity extends Activity {
         bottomGlow.setGradientRadius(px(430));
         bottomGlow.setGradientCenter(0.0f, 1.0f);
         bottomGlow.setColors(new int[]{
-                ((lit ? 85 : 34) << 24) | (accentDark & 0x00FFFFFF), 0x00000000});
+                ((lit ? 85 : 34) << 24) | (partner & 0x00FFFFFF), 0x00000000});
         return new android.graphics.drawable.LayerDrawable(
                 new android.graphics.drawable.Drawable[]{base, topGlow, bottomGlow});
     }
@@ -599,8 +634,11 @@ public class MainActivity extends Activity {
         oval.setShape(GradientDrawable.OVAL);
         int glyphColor;
         if (manualTorchOn) {
+            // Lit state: the accent runs to its complementary partner
+            // through an OKLab midpoint, so the pair vibrates without
+            // greying in the middle.
             oval = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                    new int[]{accent, oklabMidpoint(accent, accentDark), accentDark});
+                    new int[]{accent, oklabMidpoint(accent, partner), partner});
             oval.setShape(GradientDrawable.OVAL);
             glyphColor = 0xFFFFFFFF;
             heroStatus.setTextColor(colText);
@@ -612,11 +650,13 @@ public class MainActivity extends Activity {
             heroStatus.setTextColor(colMuted);
             heroStatus.setText("Flashlight is off. Tap or chop twice to turn it on.");
         }
-        // A thin halo ring floats around the circle, pure ornament.
+        // A thin halo ring floats around the circle, pure ornament. Lit,
+        // it takes the complementary partner colour.
         GradientDrawable halo = new GradientDrawable();
         halo.setShape(GradientDrawable.OVAL);
         halo.setColor(0x00000000);
-        halo.setStroke(dp(1), ((manualTorchOn ? 170 : 70) << 24) | (accent & 0x00FFFFFF));
+        halo.setStroke(dp(1), ((manualTorchOn ? 170 : 70) << 24)
+                | ((manualTorchOn ? partner : accent) & 0x00FFFFFF));
         int iconSize = dp(56);
         android.graphics.drawable.Drawable icon = powerIcon(glyphColor, iconSize);
         android.graphics.drawable.LayerDrawable layers =
