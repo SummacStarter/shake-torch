@@ -44,3 +44,7 @@ $BT/apksigner sign --ks $BLD/debug.keystore --ks-pass pass:android --key-pass pa
 $BT/apksigner verify $BLD/app-debug.apk
 cp $BLD/app-debug.apk $APP/ShakeTorch-v$VERSION_NAME.apk
 echo "Built: $APP/ShakeTorch-v$VERSION_NAME.apk"
+
+# Naming hygiene: only the current ShakeTorch-v<VERSION>.apk pattern may
+# sit in the project root. Remove legacy-pattern artifacts automatically.
+rm -f $APP/ShakeTorch-[0-9]*.apk
