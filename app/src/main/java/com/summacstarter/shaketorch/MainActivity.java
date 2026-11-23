@@ -90,7 +90,58 @@ public class MainActivity extends Activity {
         colText = dark ? 0xFFF2F2F5 : 0xFF131318;
         colMuted = dark ? 0xFF9A9AA5 : 0xFF6B6B76;
         colSurface = dark ? 0xFF23232B : 0xFFE9E9EE;
-        colStroke = dark ? 0xFF26262E : 0xFFE3E3E8;
+        // Reel rule (alpha borders): strokes are a 12% alpha tint, white on
+        // dark and black on light, so they blend into whatever sits behind
+        // them instead of reading as a solid grey line.
+        colStroke = dark ? 0x1FFFFFFF : 0x1F000000;
+    }
+
+    // Reel rule (gradients in OKLCH): interpolate the gradient midpoint in
+    // OKLab space so the middle of the gradient keeps its saturation
+    // instead of washing out the way an sRGB midpoint does.
+    private static int oklabMidpoint(int c1, int c2) {
+        double[] lab1 = toOklab(c1);
+        double[] lab2 = toOklab(c2);
+        return fromOklab(
+                (lab1[0] + lab2[0]) / 2.0,
+                (lab1[1] + lab2[1]) / 2.0,
+                (lab1[2] + lab2[2]) / 2.0);
+    }
+
+    private static double[] toOklab(int color) {
+        double r = srgbToLinear(((color >> 16) & 0xFF) / 255.0);
+        double g = srgbToLinear(((color >> 8) & 0xFF) / 255.0);
+        double b = srgbToLinear((color & 0xFF) / 255.0);
+        double l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+        double m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+        double s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+        return new double[]{
+                0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+                1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+                0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s};
+    }
+
+    private static int fromOklab(double L, double a, double b) {
+        double l = L + 0.3963377774 * a + 0.2158037573 * b;
+        double m = L - 0.1055613458 * a - 0.0638541728 * b;
+        double s = L - 0.0894841775 * a - 1.2914855480 * b;
+        l = l * l * l;
+        m = m * m * m;
+        s = s * s * s;
+        double r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+        double g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+        double bl = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+        return 0xFF000000 | (linearToSrgb(r) << 16) | (linearToSrgb(g) << 8) | linearToSrgb(bl);
+    }
+
+    private static double srgbToLinear(double c) {
+        return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+
+    private static int linearToSrgb(double c) {
+        c = Math.max(0.0, Math.min(1.0, c));
+        double v = c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1.0 / 2.4) - 0.055;
+        return Math.round((float) (v * 255.0));
     }
 
     private static int shade(int color, float factor) {
@@ -152,14 +203,15 @@ public class MainActivity extends Activity {
     }
 
     private GradientDrawable cardDrawable() {
-        GradientDrawable d = rounded(colCard, 24);
+        GradientDrawable d = rounded(colCard, 28);
         d.setStroke(dp(1), colStroke);
         return d;
     }
 
     private GradientDrawable accentGradient(float radiusDp) {
         GradientDrawable d = new GradientDrawable(
-                GradientDrawable.Orientation.TL_BR, new int[]{accent, accentDark});
+                GradientDrawable.Orientation.TL_BR,
+                new int[]{accent, oklabMidpoint(accent, accentDark), accentDark});
         d.setCornerRadius(px(radiusDp));
         return d;
     }
@@ -168,7 +220,7 @@ public class MainActivity extends Activity {
         LinearLayout c = new LinearLayout(this);
         c.setOrientation(LinearLayout.VERTICAL);
         c.setBackground(cardDrawable());
-        int p = dp(20);
+        int p = dp(18);
         c.setPadding(p, p, p, p);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -205,7 +257,9 @@ public class MainActivity extends Activity {
         b.setTextSize(15);
         b.setTypeface(fontSemiBold);
         b.setAllCaps(false);
-        b.setBackground(accentGradient(16));
+        // Reel rule (concentric radius): a full-width button inside a card
+        // takes the card radius minus the card padding: 28 - 18 = 10.
+        b.setBackground(accentGradient(10));
         b.setTextColor(0xFFFFFFFF);
         return b;
     }
@@ -217,7 +271,7 @@ public class MainActivity extends Activity {
         b.setTextSize(14);
         b.setTypeface(fontMedium);
         b.setAllCaps(false);
-        b.setBackground(rounded(colSurface, 16));
+        b.setBackground(rounded(colSurface, 10));
         b.setTextColor(colText);
         return b;
     }
@@ -488,7 +542,12 @@ public class MainActivity extends Activity {
             return;
         }
         TorchHelper.buzz(this, manualTorchOn);
-        refreshHero();
+        // Reel rule (icon swaps): soften the swap — the old state fades
+        // down while the new one fades in, instead of a hard cut.
+        heroButton.animate().alpha(0.25f).setDuration(90).withEndAction(() -> {
+            refreshHero();
+            heroButton.animate().alpha(1f).setDuration(140).start();
+        }).start();
     }
 
     // Pure decoration: two soft accent glows breathing in the corners of
@@ -541,7 +600,7 @@ public class MainActivity extends Activity {
         int glyphColor;
         if (manualTorchOn) {
             oval = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                    new int[]{accent, accentDark});
+                    new int[]{accent, oklabMidpoint(accent, accentDark), accentDark});
             oval.setShape(GradientDrawable.OVAL);
             glyphColor = 0xFFFFFFFF;
             heroStatus.setTextColor(colText);

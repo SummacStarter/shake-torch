@@ -11,8 +11,8 @@ APP=~/workspace/shake-torch-app
 BLD=$APP/manual-build
 # Naming rule: the deliverable is always ShakeTorch-v<VERSION_NAME>.apk,
 # built from these two variables and nothing else.
-VERSION_NAME=1.10
-VERSION_CODE=11
+VERSION_NAME=1.11
+VERSION_CODE=12
 mkdir -p $BLD/gen $BLD/classes $BLD/dex
 
 # Debug keystore (created once).
