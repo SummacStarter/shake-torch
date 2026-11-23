@@ -7,9 +7,9 @@
 A tiny, ad-free Android flashlight that turns on with the classic Motorola
 chop-chop gesture — and refuses to die quietly in the background.
 
-![Version](https://img.shields.io/badge/version-1.5-7C4DFF)
+![Version](https://img.shields.io/badge/version-1.12-7C4DFF)
 ![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84)
-![Size](https://img.shields.io/badge/size-~25_KB-blue)
+![Size](https://img.shields.io/badge/size-~480_KB-blue)
 ![Ads](https://img.shields.io/badge/ads-none-success)
 ![Internet](https://img.shields.io/badge/internet_permission-none-success)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
@@ -21,7 +21,7 @@ chop-chop gesture — and refuses to die quietly in the background.
 ## Why this exists
 
 The Play Store's shake-torch apps filled up with ads and trackers. This one
-was written from scratch to be the opposite: ~25 KB, **no internet permission
+was written from scratch to be the opposite: ~480 KB, **no internet permission
 at all** (so it *cannot* phone home), no ads, no analytics, no accounts.
 Just a gesture and a light.
 
@@ -48,7 +48,7 @@ every survival layer Android offers:
 | Foreground service | Sticky, with a persistent notification |
 | Boot receiver | Starts itself after a reboot, if you left it on |
 | Self-revive | Relaunches seconds after being swiped away or killed |
-| Watchdog | A 15-minute alarm chain that revives it if the system wins anyway |
+| Watchdog | A 30-minute alarm chain that revives it if the system wins anyway |
 | Root protections *(optional)* | One tap whitelists the app against Doze, pins its standby bucket to *active*, allows background runs, and disables the Android phantom process killer |
 
 On OnePlus / OxygenOS it also needs **Battery usage → Unrestricted** and
@@ -56,9 +56,10 @@ On OnePlus / OxygenOS it also needs **Battery usage → Unrestricted** and
 
 ## 📲 Install
 
-1. Download the latest `ShakeTorch-x.x.apk` from Releases
-2. Open it and allow the install (it's signed, and installs cleanly over
-   older versions)
+1. Build the APK from source (one command, see **Build from source**
+   below) — it produces a signed `ShakeTorch-v<VERSION>.apk` in the
+   project root
+2. Open it and allow the install (it installs cleanly over older versions)
 3. Open the app, allow notifications, switch on **Shake detection**
 4. Set battery to **Unrestricted** (and Auto launch on OnePlus)
 
